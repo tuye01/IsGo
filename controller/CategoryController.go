@@ -3,12 +3,12 @@ package controller
 import (
 	"ginEssential/common"
 	"ginEssential/model"
+	"ginEssential/repository"
 	"ginEssential/response"
 	"ginEssential/vo"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type ICategoryController interface {
@@ -16,13 +16,15 @@ type ICategoryController interface {
 }
 
 type CategoryController struct {
-	DB *gorm.DB
+	Repository repository.CategoryRepository
 }
 
 func NewCategoryController() ICategoryController {
+	repository := repository.NewCategoryRepository()
 	db := common.GetDB()
 	db.AutoMigrate(model.Category{})
-	return CategoryController{DB: db}
+
+	return CategoryController{Repository: repository}
 }
 
 func (c CategoryController) Create(ctx *gin.Context) {
@@ -38,10 +40,12 @@ func (c CategoryController) Create(ctx *gin.Context) {
 		return
 	}
 
-	category := model.Category{Name: requestCategory.Name}
-	c.DB.Create(&category)
+	if _, err := c.Repository.Create(requestCategory.Name); err != nil {
+		response.Fail(ctx, "创建失败", nil)
+		return
+	}
 
-	response.Success(ctx, nil, "")
+	response.Success(ctx, nil, "创建成功")
 }
 
 func (c CategoryController) Update(ctx *gin.Context) {
@@ -53,9 +57,9 @@ func (c CategoryController) Update(ctx *gin.Context) {
 	}
 
 	categoryId, _ := strconv.Atoi(ctx.Params.ByName("id"))
-	var updateCategory model.Category
 
-	if err := c.DB.First(&updateCategory, categoryId).Error; err != nil {
+	updateCategory, err := c.Repository.SelectById(categoryId)
+	if err != nil {
 		response.Fail(ctx, "分类不存在", nil)
 		return
 	}
@@ -63,16 +67,21 @@ func (c CategoryController) Update(ctx *gin.Context) {
 	//map
 	//struct
 	//name value
-	c.DB.Model(&updateCategory).Update("name", requestCategory.Name)
-	response.Success(ctx, gin.H{"category": updateCategory}, "修改成功")
+	category, err := c.Repository.Update(*updateCategory, requestCategory.Name)
+	if err != nil {
+		//response.Fail(ctx, "更新失败", nil)
+		panic(err)
+	}
+
+	response.Success(ctx, gin.H{"category": category}, "修改成功")
 }
 
 func (c CategoryController) Show(ctx *gin.Context) {
 	categoryId, _ := strconv.Atoi(ctx.Params.ByName("id"))
-	var category model.Category
 
-	if err := c.DB.First(&category, categoryId).Error; err != nil {
-		response.Fail(ctx, "分类不存在", nil)
+	category, err := c.Repository.SelectById(categoryId)
+	if err != nil {
+		response.Fail(ctx, "id不存在", nil)
 		return
 	}
 	response.Success(ctx, gin.H{"category": category}, "")
@@ -81,7 +90,7 @@ func (c CategoryController) Show(ctx *gin.Context) {
 func (c CategoryController) Delete(ctx *gin.Context) {
 	categoryId, _ := strconv.Atoi(ctx.Params.ByName("id"))
 
-	if err := c.DB.Delete(model.Category{}, categoryId).Error; err != nil {
+	if err := c.Repository.DeleteById(categoryId); err != nil {
 		response.Fail(ctx, "删除失败", nil)
 		return
 	}
