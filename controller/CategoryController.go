@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"ginEssential/common"
 	"ginEssential/model"
 	"ginEssential/response"
@@ -20,14 +19,9 @@ type CategoryController struct {
 	DB *gorm.DB
 }
 
-var v = [4]int{1, 2}
-
 func NewCategoryController() ICategoryController {
 	db := common.GetDB()
 	db.AutoMigrate(model.Category{})
-	for x, _ := range v {
-		fmt.Printf("%d", x)
-	}
 	return CategoryController{DB: db}
 }
 
